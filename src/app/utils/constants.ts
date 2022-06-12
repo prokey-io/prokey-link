@@ -1,0 +1,3 @@
+export const DEFAULT_HD_PATH = [0x80000000 + 44, 0x80000000 + 60, 0x80000000, 0, 0];
+export const CLOSE_WINDOW_DELAY = 2000;
+export const DEFAULT_CHAIN_ID = 1;
