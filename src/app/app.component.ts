@@ -4,7 +4,7 @@ import { Device } from 'lib/prokey-webcore/src/device/Device';
 import { EthereumCommands } from 'lib/prokey-webcore/src/device/EthereumCommands';
 import { getHDPath } from 'lib/prokey-webcore/src/utils/pathUtils';
 import * as Util from 'lib/prokey-webcore/src/utils/utils';
-import { DEFAULT_CHAIN_ID, DEFAULT_HD_PATH } from './utils/constants';
+import { DEFAULT_CHAIN_ID, DEFAULT_HD_PATH, LATEST_LEGACY_SIGN_DEVICE_VERSION } from './utils/constants';
 import CommandType from './models/CommandType';
 import Strings from './utils/Strings';
 import { FailureType } from 'lib/prokey-webcore/src/models/DeviceEvents';
@@ -14,18 +14,25 @@ import LinkMode from './models/LinkMode';
 import WalletConnectRequestType from './models/WalletConnectRequestType';
 import { IJsonRpcRequest, ISessionParams, ITxData } from '@walletconnect/types';
 import OptionsType from './models/OptionsType';
-import { formatTransaction, getCachedSession, getSimplifiedTransactionDetails } from './utils/walletConnectUtil';
+import WalletConnectUtil from './utils/walletConnectUtil';
 import { closeWindow } from './utils/windowUtil';
 import { TransportType } from 'lib/prokey-webcore/src/transport/ITransport';
 import IAlert from './models/IAlert';
 import AlertType from './models/AlertType';
-import { ethers } from 'ethers';
 import { SerializeEthereumTx } from 'lib/prokey-webcore/src/utils/ethereumTxSerialize';
 import SimplifiedTransaction from './models/SimplifiedTransaction';
-import { addUserNetwork, convertHexToEther, getNetwork, hexPrefixify, isNetworkSupported } from './utils/common';
+import {
+  addUserNetwork,
+  convertHexToEther,
+  getDeviceVersion,
+  getNetwork,
+  hexPrefixify,
+  isNetworkSupported,
+} from './utils/common';
 import IPassphrase from './models/IPassphrase';
 import IRPC from './models/IRPC';
 import { MyConsole } from 'lib/prokey-webcore/src/utils/console';
+import { EthersProviderUtilService } from './ethers-provider-util.service';
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -39,7 +46,6 @@ export class AppComponent implements OnInit {
   private _ethereumBasedTransaction: EthereumTx;
   private _message: Uint8Array;
   private _connector: WalletConnect;
-  private _ethersProvider: ethers.providers.JsonRpcProvider;
   //UI Visibility Control
   isLoading: boolean = true;
   showPassphraseForm = false;
@@ -65,7 +71,7 @@ export class AppComponent implements OnInit {
   simplifiedTx: SimplifiedTransaction;
   iAlert: IAlert;
 
-  constructor() {
+  constructor(private ethersProviderUtil: EthersProviderUtilService) {
     //for getting rid of undefined error when using with ngModel
     this.iPassphrase = { passphrase: '', confirmPassphrase: '' };
     this.iRPC = { chainId: 0, url: '', name: '' };
@@ -142,6 +148,7 @@ export class AppComponent implements OnInit {
     try {
       await this._connector.killSession();
     } finally {
+      localStorage.removeItem('walletconnect');
       window.location.reload();
     }
   }
@@ -234,7 +241,7 @@ export class AppComponent implements OnInit {
         case WalletConnectRequestType.SendTransaction:
         case WalletConnectRequestType.SignTransaction:
           await this.prepareForSignTransaction(payload.params[0]);
-          this.simplifiedTx = getSimplifiedTransactionDetails(payload.params[0]);
+          this.simplifiedTx = WalletConnectUtil.getSimplifiedTransactionDetails(payload.params[0]);
           commandResult = await this.runCommand(CommandType.PrepareAndSendTransaction);
           requestResult = commandResult.payload;
       }
@@ -246,6 +253,7 @@ export class AppComponent implements OnInit {
         id: this._walletConnectCallRequest.id,
         result: requestResult,
       });
+      this.isLoading = false;
       this.showDeviceAction = false;
     });
 
@@ -267,6 +275,7 @@ export class AppComponent implements OnInit {
       accounts: [this.currentAddress],
       chainId: this.dappMeta.chainId || DEFAULT_CHAIN_ID,
     });
+    this.ethersProviderUtil.setConnectedAddress(this.currentAddress);
     this.isWalletConnectConnected = true;
   }
 
@@ -275,19 +284,20 @@ export class AppComponent implements OnInit {
     this._message = Util.StringToUint8Array(convertHexToUtf8(hexMessage));
   }
 
-  async getNonce(): Promise<number> {
-    return await this._ethersProvider.getTransactionCount(this.currentAddress);
-  }
-
   async prepareForSignTransaction(tx: ITxData) {
-    this.showDeviceAction = true;
+    this.isLoading = true;
     var url = getNetwork(this.dappMeta.chainId).url;
-    this._ethersProvider = new ethers.providers.JsonRpcProvider(url);
-    const nonce = await this.getNonce();
-    this._ethereumBasedTransaction = {
-      ...formatTransaction(this._path, tx, this.dappMeta.chainId || DEFAULT_CHAIN_ID),
-      nonce: nonce.toString(),
-    };
+    this.ethersProviderUtil.setUrl(url);
+
+    const wcUtil = new WalletConnectUtil(this.ethersProviderUtil);
+    const deviceVersion = await getDeviceVersion(this._device);
+    this._ethereumBasedTransaction = (await wcUtil.formatTransaction(
+      tx,
+      this.dappMeta.chainId,
+      deviceVersion > LATEST_LEGACY_SIGN_DEVICE_VERSION
+    )) as EthereumTx;
+    this.showDeviceAction = true;
+    this.isLoading = false;
   }
 
   /**
@@ -308,6 +318,7 @@ export class AppComponent implements OnInit {
       this.isWalletConnectConnected = true;
       this.dappMeta = { ...opt };
       this.currentAddress = this.dappMeta.accounts[0];
+      this.ethersProviderUtil.setConnectedAddress(this.currentAddress);
     }
 
     this.subscribeToWalletConnectEvents();
@@ -340,7 +351,7 @@ export class AppComponent implements OnInit {
    */
   setWalletConnectMode() {
     window.removeEventListener('message', this.handleEventMessage, true);
-    const walletConnectSession = getCachedSession();
+    const walletConnectSession = WalletConnectUtil.getCachedSession();
     if (walletConnectSession) this.setupWalletConnect(walletConnectSession, OptionsType.Session);
     this.mode = LinkMode.WalletConnect;
   }
@@ -391,6 +402,7 @@ export class AppComponent implements OnInit {
 
     this._device.AddOnDeviceDisconnectCallBack(() => {
       this.isDeviceConnected = false;
+      window.location.reload();
     });
 
     this._device.AddOnButtonRequestCallBack((_) => {
@@ -408,7 +420,7 @@ export class AppComponent implements OnInit {
       } else {
         this._device.TransportConnect(TransportType.WebSocket).then(async (res) => {
           if (res.success) {
-            await this.initialize();
+            MyConsole.Info(await this.initialize());
             this.isDeviceConnected = true;
             this.subscribeToDeviceEvents();
             resolve(true);
@@ -444,7 +456,7 @@ export class AppComponent implements OnInit {
   }
 
   private async initialize() {
-    await this._device.Initialize();
+    return await this._device.Initialize();
   }
 
   private postMessage(param: any) {
@@ -467,8 +479,9 @@ export class AppComponent implements OnInit {
         break;
       case CommandType.PrepareAndSendTransaction:
         result = await ethCommands.SignTransaction(this._device, this._ethereumBasedTransaction);
+        this.isLoading = true;
         const serializedTx = SerializeEthereumTx(this._ethereumBasedTransaction, result);
-        const { hash } = await this._ethersProvider.sendTransaction(serializedTx);
+        const { hash } = await this.ethersProviderUtil._ethersProvider.sendTransaction(serializedTx);
         result = { payload: hash };
         break;
       case CommandType.SignMessage:

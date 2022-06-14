@@ -2,6 +2,7 @@ import { convertHexToNumber } from '@walletconnect/utils';
 import { ethers } from 'ethers';
 import IRPC from '../models/IRPC';
 import networks from '../data/networks.json';
+import { Device } from 'lib/prokey-webcore/src/device/Device';
 
 const USER_NETWORKS_KEY = 'userNetworks';
 
@@ -12,7 +13,7 @@ export const hexPrefixify = (str: string) => {
   return str;
 };
 
-export const convertHexToEther = (value: string) => ethers.utils.formatEther(convertHexToNumber(value));
+export const convertHexToEther = (value: string | number) => ethers.utils.formatEther(BigInt(value));
 
 export const getUserNetworks = (): Array<IRPC> => {
   const networks = localStorage.getItem(USER_NETWORKS_KEY);
@@ -34,3 +35,8 @@ export const getAllNetworks = (): Array<IRPC> => {
 export const isNetworkSupported = (chainId: number) => getAllNetworks().some((item) => item.chainId == chainId);
 
 export const getNetwork = (chainId: number) => getAllNetworks().find((item) => item.chainId == chainId);
+
+export const getDeviceVersion = async (device: Device) => {
+  const { major_version, minor_version, patch_version } = await device.GetFeatures();
+  return `${major_version}.${minor_version}.${patch_version}`;
+};
