@@ -243,16 +243,23 @@ export class AppComponent implements OnInit {
           await this.prepareForSignTransaction(payload.params[0]);
           this.simplifiedTx = WalletConnectUtil.getSimplifiedTransactionDetails(payload.params[0]);
           commandResult = await this.runCommand(CommandType.PrepareAndSendTransaction);
-          requestResult = commandResult.payload;
+          requestResult = commandResult ? commandResult.payload : null;
       }
 
       /**
        * return the result to WalletConnect Api as an approval
        */
-      this._connector.approveRequest({
-        id: this._walletConnectCallRequest.id,
-        result: requestResult,
-      });
+      if (!requestResult) {
+        this._connector.rejectRequest({
+          id: this._walletConnectCallRequest.id,
+          error: { message: Strings.somethingWentWrong },
+        });
+      } else {
+        this._connector.approveRequest({
+          id: this._walletConnectCallRequest.id,
+          result: requestResult,
+        });
+      }
       this.isLoading = false;
       this.showDeviceAction = false;
     });
@@ -418,7 +425,7 @@ export class AppComponent implements OnInit {
         await this.initialize();
         resolve(true);
       } else {
-        this._device.TransportConnect(TransportType.WebSocket).then(async (res) => {
+        this._device.TransportConnect().then(async (res) => {
           if (res.success) {
             MyConsole.Info(await this.initialize());
             this.isDeviceConnected = true;
@@ -481,8 +488,12 @@ export class AppComponent implements OnInit {
         result = await ethCommands.SignTransaction(this._device, this._ethereumBasedTransaction);
         this.isLoading = true;
         const serializedTx = SerializeEthereumTx(this._ethereumBasedTransaction, result);
-        const { hash } = await this.ethersProviderUtil._ethersProvider.sendTransaction(serializedTx);
-        result = { payload: hash };
+        try {
+          const { hash } = await this.ethersProviderUtil._ethersProvider.sendTransaction(serializedTx);
+          result = { payload: hash };
+        } catch (e) {
+          this.showSnackbar(e.code, e.reason, AlertType.Danger);
+        }
         break;
       case CommandType.SignMessage:
         result = await ethCommands.SignMessage(this._device, this._path, this._message);

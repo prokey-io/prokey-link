@@ -8,6 +8,7 @@ enum Strings {
   error = 'Error',
   fillAllFields = 'Please Fill All Fields',
   deviceConnectionFailed = 'Connection to device failed',
+  somethingWentWrong = 'Something went wrong',
 }
 
 export default Strings;
