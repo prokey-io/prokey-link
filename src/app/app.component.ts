@@ -33,6 +33,7 @@ import IPassphrase from './models/IPassphrase';
 import IRPC from './models/IRPC';
 import { MyConsole } from 'lib/prokey-webcore/src/utils/console';
 import { EthersProviderUtilService } from './ethers-provider-util.service';
+import compareVersions from 'compare-versions';
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -291,6 +292,10 @@ export class AppComponent implements OnInit {
     this._message = Util.StringToUint8Array(convertHexToUtf8(hexMessage));
   }
 
+  supportsEIP1559(first: string, second: string): boolean {
+    return compareVersions(first, second) == 1;
+  }
+
   async prepareForSignTransaction(tx: ITxData) {
     this.isLoading = true;
     var url = getNetwork(this.dappMeta.chainId).url;
@@ -301,7 +306,7 @@ export class AppComponent implements OnInit {
     this._ethereumBasedTransaction = (await wcUtil.formatTransaction(
       tx,
       this.dappMeta.chainId,
-      deviceVersion > LATEST_LEGACY_SIGN_DEVICE_VERSION
+      this.supportsEIP1559(deviceVersion, LATEST_LEGACY_SIGN_DEVICE_VERSION)
     )) as EthereumTx;
     this.showDeviceAction = true;
     this.isLoading = false;
