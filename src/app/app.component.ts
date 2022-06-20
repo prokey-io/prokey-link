@@ -16,7 +16,6 @@ import { IJsonRpcRequest, ISessionParams, ITxData } from '@walletconnect/types';
 import OptionsType from './models/OptionsType';
 import WalletConnectUtil from './utils/walletConnectUtil';
 import { closeWindow } from './utils/windowUtil';
-import { TransportType } from 'lib/prokey-webcore/src/transport/ITransport';
 import IAlert from './models/IAlert';
 import AlertType from './models/AlertType';
 import { SerializeEthereumTx } from 'lib/prokey-webcore/src/utils/ethereumTxSerialize';
@@ -84,6 +83,10 @@ export class AppComponent implements OnInit {
       this.parentWindow = window.opener;
       if (!this.parentWindow) {
         this.isLoading = false;
+        const cachedSession = WalletConnectUtil.getCachedSession();
+        if (cachedSession) {
+          this.setWalletConnectMode();
+        }
       }
     };
   }
@@ -177,10 +180,10 @@ export class AppComponent implements OnInit {
         throw error;
       }
       MyConsole.Info(payload, 'SESSION_REQUEST');
-      this.dappMeta = payload.params[0];
 
       const connected = await this.connectDevice();
       if (connected) {
+        this.dappMeta = payload.params[0];
         /**
          * When session request received from WalletConnect
          * an address should returned to it.
@@ -197,6 +200,11 @@ export class AppComponent implements OnInit {
         } else {
           this.approveWalletConnectSession();
         }
+      } else {
+        this.showSnackbar(Strings.deviceNotConnected, Strings.plugInProkey, AlertType.Danger);
+        this._connector.rejectSession({
+          message: 'Prokey device not connected',
+        });
       }
     });
 
@@ -209,60 +217,7 @@ export class AppComponent implements OnInit {
       MyConsole.Info(payload, 'EVENT', 'call_request');
       this._walletConnectCallRequest = payload;
 
-      /**
-       * Signing typed data is not supported by Prokey device yet
-       * so the request will be rejected.
-       */
-      if (payload.method == WalletConnectRequestType.SignTypedData) {
-        this._connector.rejectRequest({
-          id: this._walletConnectCallRequest.id,
-          error: { message: 'not supported on this device' },
-        });
-        return;
-      }
-      /**
-       * When Transaction or Message sign request received from WalletConnect
-       * It Immediately fires command on device.
-       */
-      let requestResult = null;
-      let commandResult = null;
-      switch (payload.method) {
-        /**
-         * @type {WalletConnectRequestType.PersonalSign} and @type {WalletConnectRequestType.Sign}
-         * are the same. the only difference is that the message string is on different index of array
-         */
-        case WalletConnectRequestType.PersonalSign:
-        case WalletConnectRequestType.Sign:
-          this.prepareForSignMessage(
-            payload.method == WalletConnectRequestType.PersonalSign ? payload.params[0] : payload.params[1]
-          );
-          commandResult = await this.runCommand(CommandType.SignMessage);
-          requestResult = hexPrefixify(commandResult.signature);
-          break;
-        case WalletConnectRequestType.SendTransaction:
-        case WalletConnectRequestType.SignTransaction:
-          await this.prepareForSignTransaction(payload.params[0]);
-          this.simplifiedTx = WalletConnectUtil.getSimplifiedTransactionDetails(payload.params[0]);
-          commandResult = await this.runCommand(CommandType.PrepareAndSendTransaction);
-          requestResult = commandResult ? commandResult.payload : null;
-      }
-
-      /**
-       * return the result to WalletConnect Api as an approval
-       */
-      if (!requestResult) {
-        this._connector.rejectRequest({
-          id: this._walletConnectCallRequest.id,
-          error: { message: Strings.somethingWentWrong },
-        });
-      } else {
-        this._connector.approveRequest({
-          id: this._walletConnectCallRequest.id,
-          result: requestResult,
-        });
-      }
-      this.isLoading = false;
-      this.showDeviceAction = false;
+      this.handleWalletConnectRequest(this._walletConnectCallRequest);
     });
 
     this._connector.on('connect', (error, payload) => {
@@ -272,6 +227,63 @@ export class AppComponent implements OnInit {
         throw error;
       }
     });
+  }
+
+  async handleWalletConnectRequest(payload) {
+    /**
+     * Signing typed data is not supported by Prokey device yet
+     * so the request will be rejected.
+     */
+    if (payload.method == WalletConnectRequestType.SignTypedData) {
+      this._connector.rejectRequest({
+        id: this._walletConnectCallRequest.id,
+        error: { message: 'not supported on this device' },
+      });
+      return;
+    }
+    /**
+     * When Transaction or Message sign request received from WalletConnect
+     * It Immediately fires command on device.
+     */
+    let requestResult = null;
+    let commandResult = null;
+    switch (payload.method) {
+      /**
+       * @type {WalletConnectRequestType.PersonalSign} and @type {WalletConnectRequestType.Sign}
+       * are the same. the only difference is that the message string is on different index of array
+       */
+      case WalletConnectRequestType.PersonalSign:
+      case WalletConnectRequestType.Sign:
+        this.prepareForSignMessage(
+          payload.method == WalletConnectRequestType.PersonalSign ? payload.params[0] : payload.params[1]
+        );
+        commandResult = await this.runCommand(CommandType.SignMessage);
+        requestResult = hexPrefixify(commandResult.signature);
+        break;
+      case WalletConnectRequestType.SendTransaction:
+      case WalletConnectRequestType.SignTransaction:
+        await this.prepareForSignTransaction(payload.params[0]);
+        this.simplifiedTx = WalletConnectUtil.getSimplifiedTransactionDetails(payload.params[0]);
+        commandResult = await this.runCommand(CommandType.PrepareAndSendTransaction);
+        requestResult = commandResult ? commandResult.payload : null;
+    }
+
+    /**
+     * return the result to WalletConnect Api as an approval
+     */
+    if (!requestResult) {
+      this._connector.rejectRequest({
+        id: this._walletConnectCallRequest.id,
+        error: { message: Strings.somethingWentWrong },
+      });
+    } else {
+      this._connector.approveRequest({
+        id: this._walletConnectCallRequest.id,
+        result: requestResult,
+      });
+    }
+    this.isLoading = false;
+    this.showDeviceAction = false;
   }
 
   /**
@@ -323,17 +335,30 @@ export class AppComponent implements OnInit {
    */
   async setupWalletConnect(opt: any, type: OptionsType) {
     this._connector = new WalletConnect({ [type]: opt });
+    const walletConnectCallRequest = localStorage.getItem('walletConnectCallRequest');
     if (!this._connector.connected) {
       await this._connector.createSession();
+      this.subscribeToWalletConnectEvents();
     } else {
-      await this.connectDevice();
-      this.isWalletConnectConnected = true;
-      this.dappMeta = { ...opt };
-      this.currentAddress = this.dappMeta.accounts[0];
-      this.ethersProviderUtil.setConnectedAddress(this.currentAddress);
+      const result = await this.connectDevice();
+      if (result) {
+        this.isWalletConnectConnected = true;
+        this.dappMeta = { ...opt };
+        this.currentAddress = this.dappMeta.accounts[0];
+        this.ethersProviderUtil.setConnectedAddress(this.currentAddress);
+        this.subscribeToWalletConnectEvents();
+        if (walletConnectCallRequest) {
+          this._walletConnectCallRequest = JSON.parse(walletConnectCallRequest);
+          this.handleWalletConnectRequest(this._walletConnectCallRequest);
+        }
+      } else {
+        this.showSnackbar(Strings.deviceNotConnected, Strings.plugInProkey, AlertType.Danger);
+        if (walletConnectCallRequest) localStorage.removeItem('walletConnectCallRequest');
+        setTimeout(() => {
+          this.killWalletConnectSession();
+        }, 2000);
+      }
     }
-
-    this.subscribeToWalletConnectEvents();
   }
 
   openWalletConnect() {
@@ -384,7 +409,7 @@ export class AppComponent implements OnInit {
     }
   }
 
-  handleFailure(failureType: FailureType) {
+  async handleFailure(failureType: FailureType) {
     switch (failureType) {
       case FailureType.ActionCancelled:
         this.showSnackbar(Strings.deviceOperation, Strings.actionCancelled, AlertType.Warning);
@@ -399,10 +424,16 @@ export class AppComponent implements OnInit {
         }
         break;
       case FailureType.NotInitialized:
-        this._device.RebootDevice().then(() => {
-          this.showSnackbar(Strings.rebootDevice, Strings.shouldRebootDevice, AlertType.Info);
-          this.showDeviceAction = false;
-        });
+        if (this._walletConnectCallRequest) {
+          localStorage.setItem('walletConnectCallRequest', JSON.stringify(this._walletConnectCallRequest));
+        }
+        try {
+          await this._device.RebootDevice();
+        } catch (e) {}
+        this.showSnackbar(Strings.rebootDevice, Strings.shouldRebootDevice, AlertType.Info);
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
     }
   }
 
@@ -414,10 +445,10 @@ export class AppComponent implements OnInit {
 
     this._device.AddOnDeviceDisconnectCallBack(() => {
       this.isDeviceConnected = false;
-      window.location.reload();
     });
 
-    this._device.AddOnButtonRequestCallBack((_) => {
+    this._device.AddOnButtonRequestCallBack((type) => {
+      console.log(type);
       this.showDeviceAction = true;
     });
 
@@ -496,6 +527,8 @@ export class AppComponent implements OnInit {
         try {
           const { hash } = await this.ethersProviderUtil._ethersProvider.sendTransaction(serializedTx);
           result = { payload: hash };
+          const lastCommand = localStorage.getItem('walletConnectCallRequest');
+          if (lastCommand) localStorage.removeItem('walletConnectCallRequest');
         } catch (e) {
           this.showSnackbar(e.code, e.reason, AlertType.Danger);
         }
