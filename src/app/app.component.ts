@@ -354,6 +354,7 @@ export class AppComponent implements OnInit {
       } else {
         this.showSnackbar(Strings.deviceNotConnected, Strings.plugInProkey, AlertType.Danger);
         if (walletConnectCallRequest) localStorage.removeItem('walletConnectCallRequest');
+        this.walletConnectUrl = '';
         setTimeout(() => {
           this.killWalletConnectSession();
         }, 2000);

@@ -10,7 +10,7 @@ enum Strings {
   deviceConnectionFailed = 'Connection to device failed',
   somethingWentWrong = 'Something went wrong',
   deviceNotConnected = 'Device not connected',
-  plugInProkey = 'Try unplugging and plugging your device',
+  plugInProkey = 'Make sure there is no other Prokey link tab or Try unplugging and plugging device',
 }
 
 export default Strings;
