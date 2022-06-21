@@ -1,8 +1,7 @@
-import { convertHexToNumber } from '@walletconnect/utils';
-import { ethers } from 'ethers';
 import IRPC from '../models/IRPC';
 import networks from '../data/networks.json';
 import { Device } from 'lib/prokey-webcore/src/device/Device';
+import { formatFixed } from '@ethersproject/bignumber';
 
 const USER_NETWORKS_KEY = 'userNetworks';
 
@@ -13,7 +12,7 @@ export const hexPrefixify = (str: string) => {
   return str;
 };
 
-export const convertHexToEther = (value: string | number) => ethers.utils.formatEther(BigInt(value));
+export const convertHexToEther = (value: number | string) => formatFixed(BigInt(value), 18);
 
 export const getUserNetworks = (): Array<IRPC> => {
   const networks = localStorage.getItem(USER_NETWORKS_KEY);

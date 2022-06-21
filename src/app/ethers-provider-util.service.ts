@@ -1,15 +1,15 @@
 import { Injectable } from '@angular/core';
-import { ethers } from 'ethers';
+import { JsonRpcProvider } from '@ethersproject/providers';
 
 @Injectable({
   providedIn: 'root',
 })
 export class EthersProviderUtilService {
-  _ethersProvider: ethers.providers.JsonRpcProvider;
+  _ethersProvider: JsonRpcProvider;
   private _connectedAddress: string;
 
   setUrl(url: string) {
-    this._ethersProvider = new ethers.providers.JsonRpcProvider(url);
+    this._ethersProvider = new JsonRpcProvider(url);
     console.log(this._ethersProvider.connection);
   }
 
