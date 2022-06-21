@@ -409,6 +409,11 @@ export class AppComponent implements OnInit {
     }
   }
 
+  removeWalletConnectLastRequest() {
+    const walletConnectCallRequest = localStorage.getItem('walletConnectCallRequest');
+    if (walletConnectCallRequest) localStorage.removeItem('walletConnectCallRequest');
+  }
+
   async handleFailure(failureType: FailureType) {
     switch (failureType) {
       case FailureType.ActionCancelled:
@@ -418,6 +423,7 @@ export class AppComponent implements OnInit {
             id: this._walletConnectCallRequest.id,
             error: { message: Strings.actionCancelled },
           });
+          this.removeWalletConnectLastRequest();
           this.showDeviceAction = false;
         } else {
           closeWindow();
@@ -527,8 +533,7 @@ export class AppComponent implements OnInit {
         try {
           const { hash } = await this.ethersProviderUtil._ethersProvider.sendTransaction(serializedTx);
           result = { payload: hash };
-          const lastCommand = localStorage.getItem('walletConnectCallRequest');
-          if (lastCommand) localStorage.removeItem('walletConnectCallRequest');
+          this.removeWalletConnectLastRequest();
         } catch (e) {
           this.showSnackbar(e.code, e.reason, AlertType.Danger);
         }
