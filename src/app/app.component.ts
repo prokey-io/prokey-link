@@ -52,6 +52,7 @@ export class AppComponent implements OnInit {
   originAllowed: Boolean;
   showDeviceAction = false;
   showRPCFrom = false;
+  showPinOnDevice = false;
   //Enum Types to use in html
   LinkMode = LinkMode;
   CommandType = CommandType;
@@ -456,7 +457,17 @@ export class AppComponent implements OnInit {
 
     this._device.AddOnButtonRequestCallBack((type) => {
       console.log(type);
-      this.showDeviceAction = true;
+      switch (type) {
+        case 'ButtonRequest_EnterPinOnDevice':
+          this.showPinOnDevice = true;
+          break;
+        case 'ButtonRequest_PinOnDeviceDone':
+          this.showPinOnDevice = false;
+          break;
+        default:
+          this.showDeviceAction = true;
+          break;
+      }
     });
 
     this._device.AddOnPasspharaseRequestCallBack(() => (this.showPassphraseForm = true));

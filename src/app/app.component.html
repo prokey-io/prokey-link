@@ -42,7 +42,7 @@
         <h1>
           <a href="" rel="home">Prokey <span>Link</span></a>
         </h1>
-        <h2>connect everything to your hardware wallet!</h2>
+        <h2>A Bridge to Web3.0</h2>
       </div>
     </div>
   </header>
@@ -83,13 +83,19 @@
       + WalletConnect
     </button>
   </section>
+  <!--  Pin on device -->
+  <section class="export" *ngIf="showPinOnDevice">
+    <img src="assets/img/long-press-ok.gif" width="auto" height="400" alt="Connect your prokey device" />
+    <h1 class="pindevice">Please enter your device PIN</h1>
+  </section>
   <!--  WalletConnect URL -->
-  <section class="provide" *ngIf="dappMeta === null && mode === LinkMode.WalletConnect">
+  <section class="provide" *ngIf="dappMeta === null && mode === LinkMode.WalletConnect && !showPinOnDevice">
     <div class="provideInner">
       <p>Provide URI</p>
       <form class="provide">
         <div class="form-group">
           <input
+            autocomplete="off"
             type="text"
             [(ngModel)]="walletConnectUrl"
             name="walletConnectUrl"
@@ -104,7 +110,7 @@
     </div>
   </section>
   <!-- Disconnect WalletConnect -->
-  <section *ngIf="isWalletConnectConnected && !showDeviceAction" class="goBack">
+  <section *ngIf="isWalletConnectConnected && !showDeviceAction && !showPinOnDevice" class="goBack">
     <div class="goBackInner">
       <p>Device is <span class="text-success">connected</span></p>
       <p class="distance">
@@ -118,7 +124,7 @@
   </section>
 
   <!-- Approve origin to use link -->
-  <section class="export" *ngIf="!originAllowed && parentWindow !== null && !isLoading">
+  <section class="export" *ngIf="!originAllowed && parentWindow !== null && !isLoading && !showPinOnDevice">
     <div class="exportInner">
       <p>Allow {{ crossOriginSession.origin }} permissions for:</p>
       <form class="export">
@@ -183,7 +189,7 @@
     </div>
   </section>
   <!-- Transaction Or Message Detail and Confirmation -->
-  <section *ngIf="showDeviceAction && !showPassphraseForm" class="confirmAction">
+  <section *ngIf="showDeviceAction && !showPassphraseForm && !showPinOnDevice" class="confirmAction">
     <div class="confirmActionInner">
       <div class="row">
         <div class="col">
@@ -242,7 +248,7 @@
     </div>
   </section>
   <!-- Passphrase form -->
-  <section class="passphrase" *ngIf="showPassphraseForm">
+  <section class="passphrase" *ngIf="showPassphraseForm && !showPinOnDevice">
     <div class="passphraseInner">
       <form class="passphrase">
         <div class="form-group">
@@ -278,7 +284,7 @@
       </form>
     </div>
   </section>
-  <section *ngIf="showRPCFrom" class="passphrase">
+  <section *ngIf="showRPCFrom && !showPinOnDevice" class="passphrase">
     <div class="passphraseInner">
       <p>The incoming network is not supported. please add network details.</p>
       <form class="passphrase">
