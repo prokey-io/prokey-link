@@ -267,10 +267,10 @@ header .description h3 {
 }
 
 .logoDesc h2 {
-  font-size: 14pt;
-  font-weight: 100;
+  font-size: 12pt;
+  font-weight: 300;
   margin-bottom: auto;
-  margin-top: 4px;
+  margin-top: 5px;
 }
 
 section.connectDevice p {
@@ -1064,3 +1064,6 @@ button.dropdownBtn svg {
   transform-origin: 0 0; /* see note above */
 }
 .ldio-hbrbipn6ka div { box-sizing: content-box; }
+.pindevice {
+  margin-top:2%;
+}
