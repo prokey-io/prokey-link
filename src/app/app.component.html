@@ -238,7 +238,10 @@
                 <span>{{ simplifiedTx.value }}</span>
               </div>
             </div>
-            <p>Please check your device for confirmation.</p>
+            <div *ngIf="_walletConnectCallRequest.method === 'eth_signTypedData' && showSignTypedDataConfirm">
+              <button class="exBtn exBtn-blue waves waves-effect" (click)="confirmOnDevice()">Confirm On Device</button>
+            </div>
+            <p *ngIf="!showSignTypedDataConfirm">Please check your device for confirmation.</p>
             <div class="arrow">
               <svg xmlns="http://www.w3.org/2000/svg" width="45.049" height="43.141" viewBox="0 0 45.049 43.141">
                 <g

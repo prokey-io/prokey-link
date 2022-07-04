@@ -56,6 +56,7 @@ export class AppComponent implements OnInit {
   showDeviceAction = false;
   showRPCFrom = false;
   showPinOnDevice = false;
+  showSignTypedDataConfirm = false;
   //Enum Types to use in html
   LinkMode = LinkMode;
   CommandType = CommandType;
@@ -269,26 +270,16 @@ export class AppComponent implements OnInit {
         this.typedData = JSON.parse(payload.params[1]);
         this.hashedTypedData = HashTypedData(JSON.parse(payload.params[1]), true);
         this.showDeviceAction = true;
-        commandResult = await this.runCommand(CommandType.SignTypedData);
-        requestResult = commandResult ? commandResult.signature : null;
     }
 
     /**
      * return the result to WalletConnect Api as an approval
      */
-    if (!requestResult) {
-      this._connector.rejectRequest({
-        id: this._walletConnectCallRequest.id,
-        error: { message: Strings.somethingWentWrong },
-      });
+    if (payload.method !== WalletConnectRequestType.SignTypedData) {
+      this.handleCommandResult(requestResult);
     } else {
-      this._connector.approveRequest({
-        id: this._walletConnectCallRequest.id,
-        result: requestResult,
-      });
+      this.showSignTypedDataConfirm = true;
     }
-    this.isLoading = false;
-    this.showDeviceAction = false;
   }
 
   /**
@@ -304,6 +295,22 @@ export class AppComponent implements OnInit {
     this.isWalletConnectConnected = true;
   }
 
+  handleCommandResult(requestResult: any) {
+    if (!requestResult) {
+      this._connector.rejectRequest({
+        id: this._walletConnectCallRequest.id,
+        error: { message: Strings.somethingWentWrong },
+      });
+    } else {
+      this._connector.approveRequest({
+        id: this._walletConnectCallRequest.id,
+        result: requestResult,
+      });
+    }
+    this.isLoading = false;
+    this.showDeviceAction = false;
+  }
+
   prepareForSignMessage(hexMessage: string) {
     this.showDeviceAction = true;
     this._message = Util.StringToUint8Array(convertHexToUtf8(hexMessage));
@@ -311,6 +318,13 @@ export class AppComponent implements OnInit {
 
   supportsEIP1559(first: string, second: string): boolean {
     return compareVersions(first, second) == 1;
+  }
+
+  async confirmOnDevice() {
+    this.showSignTypedDataConfirm = false;
+    const commandResult = await this.runCommand(CommandType.SignTypedData);
+    const requestResult = commandResult ? commandResult.signature : null;
+    this.handleCommandResult(requestResult);
   }
 
   async prepareForSignTransaction(tx: ITxData) {
