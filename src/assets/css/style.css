@@ -128,7 +128,7 @@ a {
   transition: all 0.3s ease-out;
 }
 
-section {
+.section {
   text-align: center;
 }
 
@@ -333,7 +333,7 @@ section.connectDevice p {
   background: #ffffff;
   border-radius: 15px;
   border: 2px solid #13a4f7;
-  height: 295px;
+  min-height: 295px;
   margin-left: 40px;
   padding: 20px;
   margin-top: 35px;
@@ -894,8 +894,7 @@ button.dropdownBtn svg {
   background: white;
   width: 2px;
   height: 2px;
-  box-shadow: 2px 0 0 white, 4px 0 0 white, 4px -2px 0 white, 4px -4px 0 white,
-    4px -6px 0 white, 4px -8px 0 white;
+  box-shadow: 2px 0 0 white, 4px 0 0 white, 4px -2px 0 white, 4px -4px 0 white, 4px -6px 0 white, 4px -8px 0 white;
   transform: rotate(45deg);
 }
 
@@ -969,11 +968,12 @@ button.dropdownBtn svg {
   0% {
     opacity: 1;
     backface-visibility: hidden;
-    transform: translateZ(0) scale(1.5,1.5);
-  } 100% {
+    transform: translateZ(0) scale(1.5, 1.5);
+  }
+  100% {
     opacity: 0;
     backface-visibility: hidden;
-    transform: translateZ(0) scale(1,1);
+    transform: translateZ(0) scale(1, 1);
   }
 }
 .ldio-hbrbipn6ka div > div {
@@ -983,7 +983,8 @@ button.dropdownBtn svg {
   border-radius: 50%;
   background: #0a64cb;
   animation: ldio-hbrbipn6ka 1s linear infinite;
-}.ldio-hbrbipn6ka div:nth-child(1) > div {
+}
+.ldio-hbrbipn6ka div:nth-child(1) > div {
   left: 74px;
   top: 44px;
   animation-delay: -0.875s;
@@ -991,7 +992,8 @@ button.dropdownBtn svg {
 .ldio-hbrbipn6ka > div:nth-child(1) {
   transform: rotate(0deg);
   transform-origin: 80px 50px;
-}.ldio-hbrbipn6ka div:nth-child(2) > div {
+}
+.ldio-hbrbipn6ka div:nth-child(2) > div {
   left: 65px;
   top: 65px;
   animation-delay: -0.75s;
@@ -999,7 +1001,8 @@ button.dropdownBtn svg {
 .ldio-hbrbipn6ka > div:nth-child(2) {
   transform: rotate(45deg);
   transform-origin: 71px 71px;
-}.ldio-hbrbipn6ka div:nth-child(3) > div {
+}
+.ldio-hbrbipn6ka div:nth-child(3) > div {
   left: 44px;
   top: 74px;
   animation-delay: -0.625s;
@@ -1007,7 +1010,8 @@ button.dropdownBtn svg {
 .ldio-hbrbipn6ka > div:nth-child(3) {
   transform: rotate(90deg);
   transform-origin: 50px 80px;
-}.ldio-hbrbipn6ka div:nth-child(4) > div {
+}
+.ldio-hbrbipn6ka div:nth-child(4) > div {
   left: 23px;
   top: 65px;
   animation-delay: -0.5s;
@@ -1015,7 +1019,8 @@ button.dropdownBtn svg {
 .ldio-hbrbipn6ka > div:nth-child(4) {
   transform: rotate(135deg);
   transform-origin: 29px 71px;
-}.ldio-hbrbipn6ka div:nth-child(5) > div {
+}
+.ldio-hbrbipn6ka div:nth-child(5) > div {
   left: 14px;
   top: 44px;
   animation-delay: -0.375s;
@@ -1023,7 +1028,8 @@ button.dropdownBtn svg {
 .ldio-hbrbipn6ka > div:nth-child(5) {
   transform: rotate(180deg);
   transform-origin: 20px 50px;
-}.ldio-hbrbipn6ka div:nth-child(6) > div {
+}
+.ldio-hbrbipn6ka div:nth-child(6) > div {
   left: 23px;
   top: 23px;
   animation-delay: -0.25s;
@@ -1031,7 +1037,8 @@ button.dropdownBtn svg {
 .ldio-hbrbipn6ka > div:nth-child(6) {
   transform: rotate(225deg);
   transform-origin: 29px 29px;
-}.ldio-hbrbipn6ka div:nth-child(7) > div {
+}
+.ldio-hbrbipn6ka div:nth-child(7) > div {
   left: 44px;
   top: 14px;
   animation-delay: -0.125s;
@@ -1039,7 +1046,8 @@ button.dropdownBtn svg {
 .ldio-hbrbipn6ka > div:nth-child(7) {
   transform: rotate(270deg);
   transform-origin: 50px 20px;
-}.ldio-hbrbipn6ka div:nth-child(8) > div {
+}
+.ldio-hbrbipn6ka div:nth-child(8) > div {
   left: 65px;
   top: 23px;
   animation-delay: 0s;
@@ -1063,7 +1071,26 @@ button.dropdownBtn svg {
   backface-visibility: hidden;
   transform-origin: 0 0; /* see note above */
 }
-.ldio-hbrbipn6ka div { box-sizing: content-box; }
+.ldio-hbrbipn6ka div {
+  box-sizing: content-box;
+}
 .pindevice {
-  margin-top:2%;
+  margin-top: 2%;
+}
+
+.ngx-json-viewer {
+  font-family: monospace;
+  font-size: 1em;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto !important;
+  position: relative;
+}
+
+.json-view-container {
+  height: 100px;
+  border: 1px solid #13a4f7;
+  border-radius: 3px;
+  padding: 3px;
+  margin-top: 5px;
 }

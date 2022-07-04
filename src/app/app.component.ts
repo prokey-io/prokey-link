@@ -20,6 +20,7 @@ import IAlert from './models/IAlert';
 import AlertType from './models/AlertType';
 import { SerializeEthereumTx } from 'lib/prokey-webcore/src/utils/ethereumTxSerialize';
 import SimplifiedTransaction from './models/SimplifiedTransaction';
+import { Clipboard } from '@angular/cdk/clipboard';
 import {
   addUserNetwork,
   convertHexToEther,
@@ -33,6 +34,9 @@ import IRPC from './models/IRPC';
 import { MyConsole } from 'lib/prokey-webcore/src/utils/console';
 import { EthersProviderUtilService } from './ethers-provider-util.service';
 import compareVersions from 'compare-versions';
+import { HashTypedData } from 'lib/prokey-webcore/src/utils/ethereum-hashTypedData';
+import { HashTypedDataModel, MessageTypes, TypedMessage } from 'lib/prokey-webcore/src/models/EthereumTypedDataModel';
+import { TransportType } from 'lib/prokey-webcore/src/transport/ITransport';
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -42,7 +46,6 @@ export class AppComponent implements OnInit {
   //Private variables
   private _device: Device = null;
   private _path: Array<number> = DEFAULT_HD_PATH;
-  private _walletConnectCallRequest: IJsonRpcRequest;
   private _ethereumBasedTransaction: EthereumTx;
   private _message: Uint8Array;
   private _connector: WalletConnect;
@@ -63,6 +66,7 @@ export class AppComponent implements OnInit {
   parentWindow: Window = null;
   currentCommandType: CommandType;
   crossOriginSession: MessageEvent<any>;
+  _walletConnectCallRequest: IJsonRpcRequest;
   currentAddress: string;
   dappMeta: ISessionParams = null;
   mode: LinkMode = LinkMode.CrossOrigin;
@@ -71,8 +75,10 @@ export class AppComponent implements OnInit {
   walletConnectUrl: string;
   simplifiedTx: SimplifiedTransaction;
   iAlert: IAlert;
+  typedData: TypedMessage<MessageTypes>;
+  hashedTypedData: HashTypedDataModel;
 
-  constructor(private ethersProviderUtil: EthersProviderUtilService) {
+  constructor(private ethersProviderUtil: EthersProviderUtilService, private clipboard: Clipboard) {
     //for getting rid of undefined error when using with ngModel
     this.iPassphrase = { passphrase: '', confirmPassphrase: '' };
     this.iRPC = { chainId: 0, url: '', name: '' };
@@ -105,7 +111,8 @@ export class AppComponent implements OnInit {
     if (this._walletConnectCallRequest)
       if (
         this._walletConnectCallRequest.method == WalletConnectRequestType.SendTransaction ||
-        this._walletConnectCallRequest.method == WalletConnectRequestType.SignTransaction
+        this._walletConnectCallRequest.method == WalletConnectRequestType.SignTransaction ||
+        this._walletConnectCallRequest.method == WalletConnectRequestType.SignTypedData
       )
         return true;
     return false;
@@ -232,17 +239,6 @@ export class AppComponent implements OnInit {
 
   async handleWalletConnectRequest(payload) {
     /**
-     * Signing typed data is not supported by Prokey device yet
-     * so the request will be rejected.
-     */
-    if (payload.method == WalletConnectRequestType.SignTypedData) {
-      this._connector.rejectRequest({
-        id: this._walletConnectCallRequest.id,
-        error: { message: 'not supported on this device' },
-      });
-      return;
-    }
-    /**
      * When Transaction or Message sign request received from WalletConnect
      * It Immediately fires command on device.
      */
@@ -267,6 +263,14 @@ export class AppComponent implements OnInit {
         this.simplifiedTx = WalletConnectUtil.getSimplifiedTransactionDetails(payload.params[0]);
         commandResult = await this.runCommand(CommandType.PrepareAndSendTransaction);
         requestResult = commandResult ? commandResult.payload : null;
+        break;
+      case WalletConnectRequestType.SignTypedData:
+        this.simplifiedTx = { to: payload.params[0] };
+        this.typedData = JSON.parse(payload.params[1]);
+        this.hashedTypedData = HashTypedData(JSON.parse(payload.params[1]), true);
+        this.showDeviceAction = true;
+        commandResult = await this.runCommand(CommandType.SignTypedData);
+        requestResult = commandResult ? commandResult.signature : null;
     }
 
     /**
@@ -367,6 +371,11 @@ export class AppComponent implements OnInit {
     this.setupWalletConnect(this.walletConnectUrl, OptionsType.Uri);
   }
 
+  copyTypedDataToClipboard() {
+    this.clipboard.copy(JSON.stringify(this.typedData));
+    this.showSnackbar('Success', 'Copied to clipboard.', AlertType.Success);
+  }
+
   /**
    * This is for the time when the tab
    * is opened by another origin like MEW.
@@ -442,6 +451,16 @@ export class AppComponent implements OnInit {
         setTimeout(() => {
           window.location.reload();
         }, 2000);
+        break;
+      case FailureType.PinInvalid:
+        this.showSnackbar(Strings.error, Strings.pinInvalid, AlertType.Danger);
+        if (this.mode == LinkMode.WalletConnect) {
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        } else {
+          closeWindow();
+        }
     }
   }
 
@@ -554,6 +573,8 @@ export class AppComponent implements OnInit {
         result = await ethCommands.SignMessage(this._device, this._path, this._message);
         result.address = hexPrefixify(result.address);
         break;
+      case CommandType.SignTypedData:
+        result = await ethCommands.SignTypedData(this._device, this._path, this.typedData, true);
     }
     return result;
   }

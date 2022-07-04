@@ -11,6 +11,7 @@ enum Strings {
   somethingWentWrong = 'Something went wrong',
   deviceNotConnected = 'Device not connected',
   plugInProkey = 'Make sure there is no other Prokey link tab or Try unplugging and plugging device',
+  pinInvalid = 'Pin is invalid',
 }
 
 export default Strings;

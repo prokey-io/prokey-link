@@ -5,6 +5,7 @@ enum CommandType {
   SignTransaction = 'SignTransaction',
   SignMessage = 'SignMessage',
   PrepareAndSendTransaction = 'PrepareAndSendTransaction',
+  SignTypedData = 'SignTypedData',
 }
 
 export default CommandType;

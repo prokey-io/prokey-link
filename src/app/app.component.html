@@ -47,7 +47,7 @@
     </div>
   </header>
   <!-- Homepage when opening the link directly -->
-  <section *ngIf="parentWindow === null && mode === LinkMode.CrossOrigin" class="connectDevice">
+  <section *ngIf="parentWindow === null && mode === LinkMode.CrossOrigin" class="section connectDevice">
     <img src="assets/img/connect.svg" width="450" height="450" alt="Connect your prokey device" />
     <p>
       Connect your Prokey and press "WalletConnect" button<br />
@@ -84,12 +84,12 @@
     </button>
   </section>
   <!--  Pin on device -->
-  <section class="export" *ngIf="showPinOnDevice">
+  <section class="section export" *ngIf="showPinOnDevice">
     <img src="assets/img/long-press-ok.gif" width="auto" height="400" alt="Connect your prokey device" />
     <h1 class="pindevice">Please enter your device PIN</h1>
   </section>
   <!--  WalletConnect URL -->
-  <section class="provide" *ngIf="dappMeta === null && mode === LinkMode.WalletConnect && !showPinOnDevice">
+  <section class="section provide" *ngIf="dappMeta === null && mode === LinkMode.WalletConnect && !showPinOnDevice">
     <div class="provideInner">
       <p>Provide URI</p>
       <form class="provide">
@@ -110,7 +110,7 @@
     </div>
   </section>
   <!-- Disconnect WalletConnect -->
-  <section *ngIf="isWalletConnectConnected && !showDeviceAction && !showPinOnDevice" class="goBack">
+  <section *ngIf="isWalletConnectConnected && !showDeviceAction && !showPinOnDevice" class="section goBack">
     <div class="goBackInner">
       <p>Device is <span class="text-success">connected</span></p>
       <p class="distance">
@@ -124,7 +124,7 @@
   </section>
 
   <!-- Approve origin to use link -->
-  <section class="export" *ngIf="!originAllowed && parentWindow !== null && !isLoading && !showPinOnDevice">
+  <section class="section export" *ngIf="!originAllowed && parentWindow !== null && !isLoading && !showPinOnDevice">
     <div class="exportInner">
       <p>Allow {{ crossOriginSession.origin }} permissions for:</p>
       <form class="export">
@@ -159,7 +159,7 @@
     </div>
   </section>
   <!-- Homepage when opened by an origin -->
-  <section *ngIf="!isDeviceConnected && originAllowed && !isLoading && !showDeviceAction" class="connectDevice">
+  <section *ngIf="!isDeviceConnected && originAllowed && !isLoading && !showDeviceAction" class="section connectDevice">
     <img src="assets/img/connect.svg" width="450" height="450" alt="Connect your prokey device" />
     <p>Connect your Prokey and press "Check Device" button</p>
     <button (click)="connect()" type="button" class="exBtn exBtn-oultline-blue waves waves-effect">
@@ -168,7 +168,7 @@
   </section>
   <!-- Export Account request -->
   <section
-    class="export"
+    class="section export"
     *ngIf="
       isDeviceConnected &&
       currentCommandType !== CommandType.None &&
@@ -189,7 +189,7 @@
     </div>
   </section>
   <!-- Transaction Or Message Detail and Confirmation -->
-  <section *ngIf="showDeviceAction && !showPassphraseForm && !showPinOnDevice" class="confirmAction">
+  <section *ngIf="showDeviceAction && !showPassphraseForm && !showPinOnDevice" class="section confirmAction">
     <div class="confirmActionInner">
       <div class="row">
         <div class="col">
@@ -212,10 +212,31 @@
             </div>
             <div *ngIf="isTransaction() && simplifiedTx">
               <p>A Sign Transaction request has been sent to your<br />device with the following details:</p>
-              <label>Destination</label>
+              <label>{{ _walletConnectCallRequest.method === 'eth_signTypedData' ? 'Address' : 'Destination' }}</label>
               <span>{{ simplifiedTx.to }}</span>
-              <label>Value</label>
-              <span>{{ simplifiedTx.value }}</span>
+              <div *ngIf="_walletConnectCallRequest.method === 'eth_signTypedData'" style="width: 410px">
+                <label
+                  >Typed Data Info&nbsp;&nbsp;<button
+                    (click)="copyTypedDataToClipboard()"
+                    class="exBtn exBtn-blue waves waves-effect"
+                    style="font-size: 12px; padding: 3px !important"
+                  >
+                    Copy to clipboard
+                  </button></label
+                >
+                <div class="json-view-container">
+                  <ngx-json-viewer [json]="typedData" [expanded]="false"></ngx-json-viewer>
+                </div>
+
+                <label>Domain Separator Hash</label>
+                <span style="width: 410px; overflow-x: auto">{{ hashedTypedData.domain_separator_hash }}</span>
+                <label>Message Hash</label>
+                <span style="width: 410px; overflow-x: auto">{{ hashedTypedData.message_hash }}</span>
+              </div>
+              <div *ngIf="_walletConnectCallRequest.method !== 'eth_signTypedData'">
+                <label>Value</label>
+                <span>{{ simplifiedTx.value }}</span>
+              </div>
             </div>
             <p>Please check your device for confirmation.</p>
             <div class="arrow">
@@ -248,7 +269,7 @@
     </div>
   </section>
   <!-- Passphrase form -->
-  <section class="passphrase" *ngIf="showPassphraseForm && !showPinOnDevice">
+  <section class="section passphrase" *ngIf="showPassphraseForm && !showPinOnDevice">
     <div class="passphraseInner">
       <form class="passphrase">
         <div class="form-group">
@@ -284,7 +305,7 @@
       </form>
     </div>
   </section>
-  <section *ngIf="showRPCFrom && !showPinOnDevice" class="passphrase">
+  <section *ngIf="showRPCFrom && !showPinOnDevice" class="section passphrase">
     <div class="passphraseInner">
       <p>The incoming network is not supported. please add network details.</p>
       <form class="passphrase">
@@ -298,7 +319,7 @@
         </div>
         <div class="form-group">
           <label>Chain Id</label>
-          <input type="text" [(ngModel)]="iRPC.chainId" disabled class="ex-form-control" id="chainId" name="chainId" />
+          <input type="text" [(ngModel)]="iRPC.chainId" class="ex-form-control" id="chainId" name="chainId" />
         </div>
         <button (click)="submitNetwork()" type="button" class="exBtn exBtn-blue waves waves-effect w-100">Enter</button>
       </form>
