@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Ethereum Mainnet",
+    "url": "https://rpc.ankr.com/eth",
+    "chainId": 1
+  },
+  {
+    "name": "Binance Smart Chain Mainnet",
+    "url": "https://bsc-dataseed1.binance.org",
+    "chainId": 56
+  },
+  {
+    "name": "Avalanche C-Chain",
+    "url": "https://api.avax.network/ext/bc/C/rpc",
+    "chainId": 43114
+  },
+  {
+    "name": "Polygon Mainnet",
+    "url": "https://polygon-rpc.com",
+    "chainId": 137
+  },
+  {
+    "name": "Fantom Opera",
+    "url": "https://rpc.ftm.tools",
+    "chainId": 250
+  },
+  {
+    "name": "Arbitrum One",
+    "url": "https://arb1.arbitrum.io/rpc",
+    "chainId": 42161
+  },
+  {
+    "name": "Binance Smart Chain Testnet",
+    "url": "https://data-seed-prebsc-1-s1.binance.org:8545",
+    "chainId": 97
+  }
+]
