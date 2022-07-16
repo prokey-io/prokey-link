@@ -28,6 +28,7 @@ import {
   getNetwork,
   hexPrefixify,
   isNetworkSupported,
+  reloadPage,
 } from './utils/common';
 import IPassphrase from './models/IPassphrase';
 import IRPC from './models/IRPC';
@@ -37,6 +38,7 @@ import compareVersions from 'compare-versions';
 import { HashTypedData } from 'lib/prokey-webcore/src/utils/ethereum-hashTypedData';
 import { HashTypedDataModel, MessageTypes, TypedMessage } from 'lib/prokey-webcore/src/models/EthereumTypedDataModel';
 import { TransportType } from 'lib/prokey-webcore/src/transport/ITransport';
+import { ActivatedRoute } from '@angular/router';
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -49,6 +51,7 @@ export class AppComponent implements OnInit {
   private _ethereumBasedTransaction: EthereumTx;
   private _message: Uint8Array;
   private _connector: WalletConnect;
+
   //UI Visibility Control
   isLoading: boolean = true;
   showPassphraseForm = false;
@@ -57,12 +60,15 @@ export class AppComponent implements OnInit {
   showRPCFrom = false;
   showPinOnDevice = false;
   showSignTypedDataConfirm = false;
+
   //Enum Types to use in html
   LinkMode = LinkMode;
   CommandType = CommandType;
+
   //Forms data
   iPassphrase: IPassphrase;
   iRPC: IRPC;
+
   //Other
   parentWindow: Window = null;
   currentCommandType: CommandType;
@@ -79,7 +85,11 @@ export class AppComponent implements OnInit {
   typedData: TypedMessage<MessageTypes>;
   hashedTypedData: HashTypedDataModel;
 
-  constructor(private ethersProviderUtil: EthersProviderUtilService, private clipboard: Clipboard) {
+  constructor(
+    private ethersProviderUtil: EthersProviderUtilService,
+    private clipboard: Clipboard,
+    private route: ActivatedRoute
+  ) {
     //for getting rid of undefined error when using with ngModel
     this.iPassphrase = { passphrase: '', confirmPassphrase: '' };
     this.iRPC = { chainId: 0, url: '', name: '' };
@@ -90,11 +100,20 @@ export class AppComponent implements OnInit {
     window.onload = () => {
       this.parentWindow = window.opener;
       if (!this.parentWindow) {
-        this.isLoading = false;
-        const cachedSession = WalletConnectUtil.getCachedSession();
-        if (cachedSession) {
-          this.setWalletConnectMode();
+        const wcUri = this.route.snapshot.queryParamMap.get('uri');
+        const wcKey = this.route.snapshot.queryParamMap.get('key');
+        if (wcUri && wcKey) {
+          const directWalletConnectUrl = `${wcUri}&key=${wcKey}`;
+          MyConsole.Info(directWalletConnectUrl);
+          localStorage.removeItem('walletconnect');
+          this.setupWalletConnect(directWalletConnectUrl, OptionsType.Uri);
+        } else {
+          const cachedSession = WalletConnectUtil.getCachedSession();
+          if (cachedSession) {
+            this.setWalletConnectMode();
+          }
         }
+        this.isLoading = false;
       }
     };
   }
@@ -162,7 +181,7 @@ export class AppComponent implements OnInit {
       await this._connector.killSession();
     } finally {
       localStorage.removeItem('walletconnect');
-      window.location.reload();
+      reloadPage();
     }
   }
 
@@ -353,6 +372,7 @@ export class AppComponent implements OnInit {
    * @param type determines to connect using last session or new url
    */
   async setupWalletConnect(opt: any, type: OptionsType) {
+    this.mode = LinkMode.WalletConnect;
     this._connector = new WalletConnect({ [type]: opt });
     const walletConnectCallRequest = localStorage.getItem('walletConnectCallRequest');
     if (!this._connector.connected) {
@@ -415,7 +435,6 @@ export class AppComponent implements OnInit {
     window.removeEventListener('message', this.handleEventMessage, true);
     const walletConnectSession = WalletConnectUtil.getCachedSession();
     if (walletConnectSession) this.setupWalletConnect(walletConnectSession, OptionsType.Session);
-    this.mode = LinkMode.WalletConnect;
   }
 
   /**
@@ -463,14 +482,14 @@ export class AppComponent implements OnInit {
         } catch (e) {}
         this.showSnackbar(Strings.rebootDevice, Strings.shouldRebootDevice, AlertType.Info);
         setTimeout(() => {
-          window.location.reload();
+          reloadPage();
         }, 2000);
         break;
       case FailureType.PinInvalid:
         this.showSnackbar(Strings.error, Strings.pinInvalid, AlertType.Danger);
         if (this.mode == LinkMode.WalletConnect) {
           setTimeout(() => {
-            window.location.reload();
+            reloadPage();
           }, 2000);
         } else {
           closeWindow();
