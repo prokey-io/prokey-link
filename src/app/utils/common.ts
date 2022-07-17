@@ -39,3 +39,5 @@ export const getDeviceVersion = async (device: Device) => {
   const { major_version, minor_version, patch_version } = await device.GetFeatures();
   return `${major_version}.${minor_version}.${patch_version}`;
 };
+
+export const reloadPage = () => window.location.replace(location.pathname);
