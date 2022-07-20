@@ -84,6 +84,7 @@ export class AppComponent implements OnInit {
   iAlert: IAlert;
   typedData: TypedMessage<MessageTypes>;
   hashedTypedData: HashTypedDataModel;
+  directWalletConnectUrl: string;
 
   constructor(
     private ethersProviderUtil: EthersProviderUtilService,
@@ -103,10 +104,9 @@ export class AppComponent implements OnInit {
         const wcUri = this.route.snapshot.queryParamMap.get('uri');
         const wcKey = this.route.snapshot.queryParamMap.get('key');
         if (wcUri && wcKey) {
-          const directWalletConnectUrl = `${wcUri}&key=${wcKey}`;
-          MyConsole.Info(directWalletConnectUrl);
+          this.directWalletConnectUrl = `${wcUri}&key=${wcKey}`;
           localStorage.removeItem('walletconnect');
-          this.setupWalletConnect(directWalletConnectUrl, OptionsType.Uri);
+          this.setupWalletConnect(this.directWalletConnectUrl, OptionsType.Uri);
         } else {
           const cachedSession = WalletConnectUtil.getCachedSession();
           if (cachedSession) {
@@ -209,30 +209,22 @@ export class AppComponent implements OnInit {
       }
       MyConsole.Info(payload, 'SESSION_REQUEST');
 
-      const connected = await this.connectDevice();
-      if (connected) {
-        this.dappMeta = payload.params[0];
-        /**
-         * When session request received from WalletConnect
-         * an address should returned to it.
-         *
-         * Here we run @type {CommandType.GetAddress} command
-         * and return address as an approval to WalletConnect Api using @method approveWalletConnectSession()
-         */
-        const result = await this.runCommand(CommandType.GetAddress);
-        this.currentAddress = result.address;
+      this.dappMeta = payload.params[0];
+      /**
+       * When session request received from WalletConnect
+       * an address should returned to it.
+       *
+       * Here we run @type {CommandType.GetAddress} command
+       * and return address as an approval to WalletConnect Api using @method approveWalletConnectSession()
+       */
+      const result = await this.runCommand(CommandType.GetAddress);
+      this.currentAddress = result.address;
 
-        if (!isNetworkSupported(this.dappMeta.chainId)) {
-          this.showRPCFrom = true;
-          this.iRPC.chainId = this.dappMeta.chainId;
-        } else {
-          this.approveWalletConnectSession();
-        }
+      if (!isNetworkSupported(this.dappMeta.chainId)) {
+        this.showRPCFrom = true;
+        this.iRPC.chainId = this.dappMeta.chainId;
       } else {
-        this.showSnackbar(Strings.deviceNotConnected, Strings.plugInProkey, AlertType.Danger);
-        this._connector.rejectSession({
-          message: 'Prokey device not connected',
-        });
+        this.approveWalletConnectSession();
       }
     });
 
@@ -254,6 +246,13 @@ export class AppComponent implements OnInit {
         MyConsole.Error(error, 'EVENT', 'connect');
         throw error;
       }
+    });
+
+    this._connector.on('disconnect', (error, payload) => {
+      if (error) {
+        throw error;
+      }
+      reloadPage();
     });
   }
 
@@ -372,15 +371,27 @@ export class AppComponent implements OnInit {
    * @param type determines to connect using last session or new url
    */
   async setupWalletConnect(opt: any, type: OptionsType) {
-    this.mode = LinkMode.WalletConnect;
-    this._connector = new WalletConnect({ [type]: opt });
     const walletConnectCallRequest = localStorage.getItem('walletConnectCallRequest');
-    if (!this._connector.connected) {
-      await this._connector.createSession();
-      this.subscribeToWalletConnectEvents();
+    const connected = await this.connectDevice();
+    if (!connected) {
+      if (this.directWalletConnectUrl) {
+        this.walletConnectUrl = this.directWalletConnectUrl;
+        this.mode = LinkMode.WalletConnect;
+      } else {
+        this.showSnackbar(Strings.deviceNotConnected, Strings.plugInProkey, AlertType.Danger);
+        if (walletConnectCallRequest) localStorage.removeItem('walletConnectCallRequest');
+        this.walletConnectUrl = '';
+        setTimeout(() => {
+          this.killWalletConnectSession();
+        }, 2000);
+      }
     } else {
-      const result = await this.connectDevice();
-      if (result) {
+      this.mode = LinkMode.WalletConnect;
+      this._connector = new WalletConnect({ [type]: opt });
+      if (!this._connector.connected) {
+        await this._connector.createSession();
+        this.subscribeToWalletConnectEvents();
+      } else {
         this.isWalletConnectConnected = true;
         this.dappMeta = { ...opt };
         this.currentAddress = this.dappMeta.accounts[0];
@@ -390,13 +401,6 @@ export class AppComponent implements OnInit {
           this._walletConnectCallRequest = JSON.parse(walletConnectCallRequest);
           this.handleWalletConnectRequest(this._walletConnectCallRequest);
         }
-      } else {
-        this.showSnackbar(Strings.deviceNotConnected, Strings.plugInProkey, AlertType.Danger);
-        if (walletConnectCallRequest) localStorage.removeItem('walletConnectCallRequest');
-        this.walletConnectUrl = '';
-        setTimeout(() => {
-          this.killWalletConnectSession();
-        }, 2000);
       }
     }
   }
@@ -434,7 +438,11 @@ export class AppComponent implements OnInit {
   setWalletConnectMode() {
     window.removeEventListener('message', this.handleEventMessage, true);
     const walletConnectSession = WalletConnectUtil.getCachedSession();
-    if (walletConnectSession) this.setupWalletConnect(walletConnectSession, OptionsType.Session);
+    if (walletConnectSession) {
+      this.setupWalletConnect(walletConnectSession, OptionsType.Session);
+    } else {
+      this.mode = LinkMode.WalletConnect;
+    }
   }
 
   /**
