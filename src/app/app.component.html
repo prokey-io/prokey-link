@@ -212,9 +212,16 @@
             </div>
             <div *ngIf="isTransaction() && simplifiedTx">
               <p>A Sign Transaction request has been sent to your<br />device with the following details:</p>
-              <label>{{ _walletConnectCallRequest.method === 'eth_signTypedData' ? 'Address' : 'Destination' }}</label>
+              <label>{{
+                _walletConnectCallRequest && _walletConnectCallRequest.method === 'eth_signTypedData'
+                  ? 'Address'
+                  : 'Destination'
+              }}</label>
               <span>{{ simplifiedTx.to }}</span>
-              <div *ngIf="_walletConnectCallRequest.method === 'eth_signTypedData'" style="width: 410px">
+              <div
+                *ngIf="_walletConnectCallRequest && _walletConnectCallRequest.method === 'eth_signTypedData'"
+                style="width: 410px"
+              >
                 <label
                   >Typed Data Info&nbsp;&nbsp;<button
                     (click)="copyTypedDataToClipboard()"
@@ -233,12 +240,18 @@
                 <label>Message Hash</label>
                 <span style="width: 410px; overflow-x: auto">{{ hashedTypedData.message_hash }}</span>
               </div>
-              <div *ngIf="_walletConnectCallRequest.method !== 'eth_signTypedData'">
+              <div *ngIf="!_walletConnectCallRequest || _walletConnectCallRequest.method !== 'eth_signTypedData'">
                 <label>Value</label>
                 <span>{{ simplifiedTx.value }}</span>
               </div>
             </div>
-            <div *ngIf="_walletConnectCallRequest.method === 'eth_signTypedData' && showSignTypedDataConfirm">
+            <div
+              *ngIf="
+                _walletConnectCallRequest &&
+                _walletConnectCallRequest.method === 'eth_signTypedData' &&
+                showSignTypedDataConfirm
+              "
+            >
               <button class="exBtn exBtn-blue waves waves-effect BtnSendtodevice" (click)="confirmOnDevice()">
                 Send to Device
               </button>

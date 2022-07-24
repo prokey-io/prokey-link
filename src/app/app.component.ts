@@ -558,7 +558,12 @@ export class AppComponent implements OnInit {
       }
       if (this.currentCommandType != CommandType.GetEthereumPublicKey) {
         this.showDeviceAction = true;
-        this.exportAccount();
+        const commandResult = await this.runCommand(this.currentCommandType);
+        if (commandResult && this.isDeviceConnected) {
+          this.postMessage(commandResult);
+          this.isLoading = true;
+          closeWindow();
+        }
       }
     });
   }
