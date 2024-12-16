@@ -61,7 +61,7 @@ export class AppComponent implements OnInit {
 
   // For WalletConnect v2
   private _signClient: SignClient;
-  private isWCv2: boolean = false;
+  public isWCv2: boolean = false;
 
   //UI Visibility Control
   isLoading: boolean = true;
@@ -507,13 +507,13 @@ export class AppComponent implements OnInit {
       if (isV2Uri) {
         // Initialize WCV2 SignClient
         this._signClient = await SignClient.init({
-          projectId: 'YOUR_PROJECT_ID', // replace with your projectId from WalletConnect Cloud
+          projectId: '39b971c70b13ae0b3a487ebb2f710fb7', // replace with your projectId from WalletConnect Cloud
           relayUrl: 'wss://relay.walletconnect.com', // or your preferred relay
           metadata: {
-            name: "Your Dapp Name",
-            description: "Your Dapp Description",
-            url: "https://yourdapp.url",
-            icons: ["https://yourdapp.url/icon.png"]
+            name: "Prokey Hardware Wallet",
+            description: "Sign transactions with Prokey Hardware Wallet",
+            url: "https://prokey.io",
+            icons: ["https://prokey.io/favicon.ico"],
           }
         });
 
