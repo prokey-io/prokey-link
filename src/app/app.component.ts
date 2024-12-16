@@ -57,7 +57,7 @@ export class AppComponent implements OnInit {
   private _message: Uint8Array;
 
   // For WalletConnect v1
-  private _connector: WalletConnect; 
+  private _connector: WalletConnect;
 
   // For WalletConnect v2
   private _signClient: SignClient;
@@ -176,7 +176,7 @@ export class AppComponent implements OnInit {
     if (this._walletConnectCallRequest && this._walletConnectCallRequest.params) {
       return HexStringToUTF8(
         this._walletConnectCallRequest.params[
-          this._walletConnectCallRequest.method == WalletConnectRequestType.Sign ? 1 : 0
+        this._walletConnectCallRequest.method == WalletConnectRequestType.Sign ? 1 : 0
         ]
       );
     } else {
@@ -283,12 +283,12 @@ export class AppComponent implements OnInit {
     // SignClient has a different event structure
 
     this._signClient.on('session_proposal', async (proposal) => {
-      const { id, params } = proposal; 
-      const { proposer, requiredNamespaces } = params; 
-    
+      const { id, params } = proposal;
+      const { proposer, requiredNamespaces } = params;
+
       const result = await this.runCommand(CommandType.GetAddress);
       this.currentAddress = result.address;
-    
+
       const chainId = requiredNamespaces.eip155.chains[0].split(':')[1];
       const wcV2Meta: IWCv2SessionMeta = {
         chainId: Number(chainId),
@@ -297,11 +297,12 @@ export class AppComponent implements OnInit {
         url: proposer.metadata.url,
         icons: proposer.metadata.icons,
       };
-    
-      // Store WCV2 metadata separately from dappMeta, or handle accordingly
-      // If you need `dappMeta` for V1 compatibility, consider using a different variable for V2.
-      // this.dappMeta = wcV2Meta; // If you have logic depending on dappMeta, refactor it to handle both V1 and V2.
-    
+
+      this.dappMeta = {
+        accounts: [this.currentAddress], chainId: wcV2Meta.chainId, rpcUrl: wcV2Meta.url,
+        approved: true, networkId: wcV2Meta.chainId
+      };
+
       // Approve the session
       const namespaces = {
         eip155: {
@@ -314,11 +315,11 @@ export class AppComponent implements OnInit {
         id,
         namespaces,
       });
-    
+
       this.ethersProviderUtil.setConnectedAddress(this.currentAddress);
       this.isWalletConnectConnected = true;
     });
-    
+
     this._signClient.on('session_request', async (event) => {
       MyConsole.Info(event, 'SESSION_REQUEST');
       const { topic, params, id } = event;
@@ -632,7 +633,7 @@ export class AppComponent implements OnInit {
         }
         try {
           await this._device.RebootDevice();
-        } catch (e) {}
+        } catch (e) { }
         this.showSnackbar(Strings.rebootDevice, Strings.shouldRebootDevice, AlertType.Info);
         setTimeout(() => {
           reloadPage();
