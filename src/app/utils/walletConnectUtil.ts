@@ -1,4 +1,4 @@
-import { ICallTxData, ITxData } from '@walletconnect/types';
+import { ICallTxData, ITxData } from '@walletconnect/legacy-types';
 import { EthersProviderUtilService } from '../ethers-provider-util.service';
 import SimplifiedTransaction from '../models/SimplifiedTransaction';
 import WalletConnectTx from '../models/WalletConnectTx';

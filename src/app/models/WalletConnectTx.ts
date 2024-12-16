@@ -1,4 +1,4 @@
-import { ICallTxData } from '@walletconnect/types';
+import { ICallTxData } from '@walletconnect/legacy-types';
 
 interface WalletConnectTx extends ICallTxData {
   maxPriorityFeePerGas?: string;

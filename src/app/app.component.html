@@ -113,7 +113,7 @@
   <section *ngIf="isWalletConnectConnected && !showDeviceAction && !showPinOnDevice" class="section goBack">
     <div class="goBackInner">
       <p>Device is <span class="text-success">connected</span></p>
-      <p class="distance">
+      <p *ngIf="!isWCv2" class="distance">
         Now go back to {{ dappMeta.peerMeta.url }} tab and leave this tab open.<br />Requested operation will be handled
         here.
       </p>

@@ -8,11 +8,11 @@ import { DEFAULT_CHAIN_ID, DEFAULT_HD_PATH, LATEST_LEGACY_SIGN_DEVICE_VERSION } 
 import CommandType from './models/CommandType';
 import Strings from './utils/Strings';
 import { FailureType } from 'lib/prokey-webcore/src/models/DeviceEvents';
-import WalletConnect from '@walletconnect/client';
-import { convertHexToUtf8 } from '@walletconnect/utils';
+import WalletConnect from '@walletconnect/client'; // v1
+import { HexStringToUTF8 } from 'lib/prokey-webcore/src/utils/utils';
 import LinkMode from './models/LinkMode';
 import WalletConnectRequestType from './models/WalletConnectRequestType';
-import { IJsonRpcRequest, ISessionParams, ITxData } from '@walletconnect/types';
+import { IJsonRpcRequest, ISessionParams, ITxData } from '@walletconnect/legacy-types';
 import OptionsType from './models/OptionsType';
 import WalletConnectUtil from './utils/walletConnectUtil';
 import { closeWindow } from './utils/windowUtil';
@@ -39,6 +39,11 @@ import { HashTypedData } from 'lib/prokey-webcore/src/utils/ethereum-hashTypedDa
 import { HashTypedDataModel, MessageTypes, TypedMessage } from 'lib/prokey-webcore/src/models/EthereumTypedDataModel';
 import { TransportType } from 'lib/prokey-webcore/src/transport/ITransport';
 import { ActivatedRoute } from '@angular/router';
+
+// Import WalletConnect v2 sign client
+import SignClient from '@walletconnect/sign-client';
+import IWCv2SessionMeta from './models/IWCv2SessionMeta';
+
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -50,7 +55,13 @@ export class AppComponent implements OnInit {
   private _path: Array<number> = DEFAULT_HD_PATH;
   private _ethereumBasedTransaction: EthereumTx;
   private _message: Uint8Array;
+
+  // For WalletConnect v1
   private _connector: WalletConnect;
+
+  // For WalletConnect v2
+  private _signClient: SignClient;
+  public isWCv2: boolean = false;
 
   //UI Visibility Control
   isLoading: boolean = true;
@@ -163,9 +174,9 @@ export class AppComponent implements OnInit {
    */
   getMessage(): string {
     if (this._walletConnectCallRequest && this._walletConnectCallRequest.params) {
-      return convertHexToUtf8(
+      return HexStringToUTF8(
         this._walletConnectCallRequest.params[
-          this._walletConnectCallRequest.method == WalletConnectRequestType.Sign ? 1 : 0
+        this._walletConnectCallRequest.method == WalletConnectRequestType.Sign ? 1 : 0
         ]
       );
     } else {
@@ -178,7 +189,18 @@ export class AppComponent implements OnInit {
    */
   async killWalletConnectSession() {
     try {
-      await this._connector.killSession();
+      if (this.isWCv2 && this._signClient) {
+        // Disconnect for v2
+        const sessions = this._signClient.session.getAll();
+        for (const s of sessions) {
+          await this._signClient.disconnect({
+            topic: s.topic,
+            reason: { code: 1000, message: 'User disconnected' },
+          });
+        }
+      } else if (this._connector) {
+        await this._connector.killSession();
+      }
     } finally {
       localStorage.removeItem('walletconnect');
       reloadPage();
@@ -201,7 +223,7 @@ export class AppComponent implements OnInit {
     }
   }
 
-  subscribeToWalletConnectEvents() {
+  subscribeToWalletConnectEventsV1() {
     this._connector.on('session_request', async (error, payload) => {
       if (error) {
         MyConsole.Error(error, 'EVENT', 'session_request');
@@ -241,7 +263,7 @@ export class AppComponent implements OnInit {
     });
 
     this._connector.on('connect', (error, payload) => {
-      MyConsole.Info('WalletConnect connected');
+      MyConsole.Info('WalletConnect v1 connected');
       if (error) {
         MyConsole.Error(error, 'EVENT', 'connect');
         throw error;
@@ -256,7 +278,66 @@ export class AppComponent implements OnInit {
     });
   }
 
-  async handleWalletConnectRequest(payload) {
+  // Example handling for WCV2 events
+  subscribeToWalletConnectEventsV2() {
+    // SignClient has a different event structure
+
+    this._signClient.on('session_proposal', async (proposal) => {
+      const { id, params } = proposal;
+      const { proposer, requiredNamespaces } = params;
+
+      const result = await this.runCommand(CommandType.GetAddress);
+      this.currentAddress = result.address;
+
+      const chainId = requiredNamespaces.eip155.chains[0].split(':')[1];
+      const wcV2Meta: IWCv2SessionMeta = {
+        chainId: Number(chainId),
+        name: proposer.metadata.name,
+        description: proposer.metadata.description,
+        url: proposer.metadata.url,
+        icons: proposer.metadata.icons,
+      };
+
+      this.dappMeta = {
+        accounts: [this.currentAddress], chainId: wcV2Meta.chainId, rpcUrl: wcV2Meta.url,
+        approved: true, networkId: wcV2Meta.chainId
+      };
+
+      // Approve the session
+      const namespaces = {
+        eip155: {
+          accounts: [`eip155:${wcV2Meta.chainId}:${this.currentAddress}`],
+          methods: ['eth_sendTransaction', 'eth_signTransaction', 'eth_sign', 'personal_sign', 'eth_signTypedData'],
+          events: ['accountsChanged', 'chainChanged'],
+        },
+      };
+      await this._signClient.approve({
+        id,
+        namespaces,
+      });
+
+      this.ethersProviderUtil.setConnectedAddress(this.currentAddress);
+      this.isWalletConnectConnected = true;
+    });
+
+    this._signClient.on('session_request', async (event) => {
+      MyConsole.Info(event, 'SESSION_REQUEST');
+      const { topic, params, id } = event;
+      const { request } = params;
+      this._walletConnectCallRequest = {
+        id,
+        method: request.method,
+        params: request.params,
+      } as IJsonRpcRequest;
+      await this.handleWalletConnectRequest(this._walletConnectCallRequest, true, topic, id);
+    });
+
+    this._signClient.on('session_delete', () => {
+      reloadPage();
+    });
+  }
+
+  async handleWalletConnectRequest(payload, isV2 = false, topic?: string, requestId?: number) {
     /**
      * When Transaction or Message sign request received from WalletConnect
      * It Immediately fires command on device.
@@ -294,7 +375,7 @@ export class AppComponent implements OnInit {
      * return the result to WalletConnect Api as an approval
      */
     if (payload.method !== WalletConnectRequestType.SignTypedData) {
-      this.handleCommandResult(requestResult);
+      this.handleCommandResult(requestResult, isV2, topic, requestId);
     } else {
       this.showSignTypedDataConfirm = true;
     }
@@ -305,33 +386,61 @@ export class AppComponent implements OnInit {
    * if not the default chain id is considered the Ethereum mainnet chainId
    */
   approveWalletConnectSession() {
-    this._connector.approveSession({
-      accounts: [this.currentAddress],
-      chainId: this.dappMeta.chainId || DEFAULT_CHAIN_ID,
-    });
-    this.ethersProviderUtil.setConnectedAddress(this.currentAddress);
-    this.isWalletConnectConnected = true;
+    if (this.isWCv2) {
+      // WCV2 session is approved in session_proposal step
+      // Nothing to do here if already approved there.
+    } else {
+      this._connector.approveSession({
+        accounts: [this.currentAddress],
+        chainId: this.dappMeta.chainId || DEFAULT_CHAIN_ID,
+      });
+      this.ethersProviderUtil.setConnectedAddress(this.currentAddress);
+      this.isWalletConnectConnected = true;
+    }
   }
 
-  handleCommandResult(requestResult: any) {
-    if (!requestResult) {
-      this._connector.rejectRequest({
-        id: this._walletConnectCallRequest.id,
-        error: { message: Strings.somethingWentWrong },
-      });
+  handleCommandResult(requestResult: any, isV2 = false, topic?: string, requestId?: number) {
+    if (isV2 && this._signClient) {
+      if (!requestResult) {
+        this._signClient.respond({
+          topic,
+          response: {
+            id: requestId,
+            jsonrpc: '2.0',
+            error: { code: 5000, message: Strings.somethingWentWrong },
+          },
+        });
+      } else {
+        this._signClient.respond({
+          topic,
+          response: {
+            id: requestId,
+            jsonrpc: '2.0',
+            result: requestResult,
+          },
+        });
+      }
     } else {
-      this._connector.approveRequest({
-        id: this._walletConnectCallRequest.id,
-        result: requestResult,
-      });
+      if (!requestResult) {
+        this._connector.rejectRequest({
+          id: this._walletConnectCallRequest.id,
+          error: { message: Strings.somethingWentWrong },
+        });
+      } else {
+        this._connector.approveRequest({
+          id: this._walletConnectCallRequest.id,
+          result: requestResult,
+        });
+      }
     }
+
     this.isLoading = false;
     this.showDeviceAction = false;
   }
 
   prepareForSignMessage(hexMessage: string) {
     this.showDeviceAction = true;
-    this._message = Util.StringToUint8Array(convertHexToUtf8(hexMessage));
+    this._message = Util.StringToUint8Array(HexStringToUTF8(hexMessage));
   }
 
   supportsEIP1559(first: string, second: string): boolean {
@@ -342,7 +451,9 @@ export class AppComponent implements OnInit {
     this.showSignTypedDataConfirm = false;
     const commandResult = await this.runCommand(CommandType.SignTypedData);
     const requestResult = commandResult ? commandResult.signature : null;
-    this.handleCommandResult(requestResult);
+    // For typed data sign we need to know if we are in v2 or not. 
+    // If currently saved request was v2, handle accordingly.
+    this.handleCommandResult(requestResult, this.isWCv2);
   }
 
   async prepareForSignTransaction(tx: ITxData) {
@@ -387,19 +498,50 @@ export class AppComponent implements OnInit {
       }
     } else {
       this.mode = LinkMode.WalletConnect;
-      this._connector = new WalletConnect({ [type]: opt });
-      if (!this._connector.connected) {
-        await this._connector.createSession();
-        this.subscribeToWalletConnectEvents();
+
+      // Detect if URI is WalletConnect v2:
+      // Typically v2 URIs look like: wc:<topic>@2?relay-protocol=...&symKey=...
+      // We'll do a simple check:
+      const isV2Uri = typeof opt === 'string' && opt.includes('relay-protocol');
+      this.isWCv2 = isV2Uri;
+
+      if (isV2Uri) {
+        // Initialize WCV2 SignClient
+        this._signClient = await SignClient.init({
+          projectId: '39b971c70b13ae0b3a487ebb2f710fb7', // replace with your projectId from WalletConnect Cloud
+          relayUrl: 'wss://relay.walletconnect.com', // or your preferred relay
+          metadata: {
+            name: "Prokey Hardware Wallet",
+            description: "Sign transactions with Prokey Hardware Wallet",
+            url: "https://prokey.io",
+            icons: ["https://prokey.io/favicon.ico"],
+          }
+        });
+
+        if (type === OptionsType.Uri) {
+          // pair with the URI
+          await this._signClient.pair({ uri: opt });
+        } else if (type === OptionsType.Session) {
+          // If you have a persisted session, restore it here
+          // Not directly applicable for v2 as in v1, but you can handle re-connections as needed
+        }
+        this.subscribeToWalletConnectEventsV2();
       } else {
-        this.isWalletConnectConnected = true;
-        this.dappMeta = { ...opt };
-        this.currentAddress = this.dappMeta.accounts[0];
-        this.ethersProviderUtil.setConnectedAddress(this.currentAddress);
-        this.subscribeToWalletConnectEvents();
-        if (walletConnectCallRequest) {
-          this._walletConnectCallRequest = JSON.parse(walletConnectCallRequest);
-          this.handleWalletConnectRequest(this._walletConnectCallRequest);
+        // Handle v1 logic
+        this._connector = new WalletConnect({ [type]: opt });
+        if (!this._connector.connected) {
+          await this._connector.createSession();
+          this.subscribeToWalletConnectEventsV1();
+        } else {
+          this.isWalletConnectConnected = true;
+          this.dappMeta = { ...opt };
+          this.currentAddress = this.dappMeta.accounts[0];
+          this.ethersProviderUtil.setConnectedAddress(this.currentAddress);
+          this.subscribeToWalletConnectEventsV1();
+          if (walletConnectCallRequest) {
+            this._walletConnectCallRequest = JSON.parse(walletConnectCallRequest);
+            this.handleWalletConnectRequest(this._walletConnectCallRequest);
+          }
         }
       }
     }
@@ -471,10 +613,14 @@ export class AppComponent implements OnInit {
       case FailureType.ActionCancelled:
         this.showSnackbar(Strings.deviceOperation, Strings.actionCancelled, AlertType.Warning);
         if (this.mode == LinkMode.WalletConnect) {
-          this._connector.rejectRequest({
-            id: this._walletConnectCallRequest.id,
-            error: { message: Strings.actionCancelled },
-          });
+          if (this.isWCv2 && this._signClient) {
+            // Respond with an error if needed
+          } else {
+            this._connector.rejectRequest({
+              id: this._walletConnectCallRequest.id,
+              error: { message: Strings.actionCancelled },
+            });
+          }
           this.removeWalletConnectLastRequest();
           this.showDeviceAction = false;
         } else {
@@ -487,7 +633,7 @@ export class AppComponent implements OnInit {
         }
         try {
           await this._device.RebootDevice();
-        } catch (e) {}
+        } catch (e) { }
         this.showSnackbar(Strings.rebootDevice, Strings.shouldRebootDevice, AlertType.Info);
         setTimeout(() => {
           reloadPage();
