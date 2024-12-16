@@ -9,10 +9,10 @@ import CommandType from './models/CommandType';
 import Strings from './utils/Strings';
 import { FailureType } from 'lib/prokey-webcore/src/models/DeviceEvents';
 import WalletConnect from '@walletconnect/client';
-import { convertHexToUtf8 } from '@walletconnect/utils';
+import { HexStringToUTF8 } from 'lib/prokey-webcore/src/utils/utils';
 import LinkMode from './models/LinkMode';
 import WalletConnectRequestType from './models/WalletConnectRequestType';
-import { IJsonRpcRequest, ISessionParams, ITxData } from '@walletconnect/types';
+import { IJsonRpcRequest, ISessionParams, ITxData } from '@walletconnect/legacy-types';
 import OptionsType from './models/OptionsType';
 import WalletConnectUtil from './utils/walletConnectUtil';
 import { closeWindow } from './utils/windowUtil';
@@ -163,7 +163,7 @@ export class AppComponent implements OnInit {
    */
   getMessage(): string {
     if (this._walletConnectCallRequest && this._walletConnectCallRequest.params) {
-      return convertHexToUtf8(
+      return HexStringToUTF8(
         this._walletConnectCallRequest.params[
           this._walletConnectCallRequest.method == WalletConnectRequestType.Sign ? 1 : 0
         ]
@@ -331,7 +331,7 @@ export class AppComponent implements OnInit {
 
   prepareForSignMessage(hexMessage: string) {
     this.showDeviceAction = true;
-    this._message = Util.StringToUint8Array(convertHexToUtf8(hexMessage));
+    this._message = Util.StringToUint8Array(HexStringToUTF8(hexMessage));
   }
 
   supportsEIP1559(first: string, second: string): boolean {
